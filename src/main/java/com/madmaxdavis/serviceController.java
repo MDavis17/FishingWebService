@@ -47,20 +47,25 @@ public class serviceController {
     @RequestMapping("/current")
     public conditionData index() throws Exception
     {
+        //may not need this date time stuff here if its only used in the getPredTide function...
         Date dnow = new Date();
         SimpleDateFormat date = new SimpleDateFormat("MM/dd/yyyy");
         SimpleDateFormat time = new SimpleDateFormat("HH:mm");
 
-
-        DateTime dt = new DateTime();
-        double current_tide = getCurrentTidelevel();
-        double current_temp = getCurrentTemp();
-
-        conditionData data = new conditionData(current_tide,current_temp,dt,5.1);
         String tempUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station=9411340&product=air_temperature&units=english&time_zone=lst_ldt&application=ports_screen&format=json";
         String tideUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station=9411340&product=water_level&units=english&time_zone=lst_ldt&application=ports_screen&format=json&datum=STND";
         String tidePredUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?begin_date="+date.format(dnow)+"%20"+time.format(dnow)+"&range=24&station=9411340&product=predictions&units=english&time_zone=lst_ldt&format=json&datum=STND";
 
+
+
+        DateTime dt = new DateTime();
+        double current_tide = getCurrentValue(tideUrlString);
+        double current_temp = getCurrentValue(tempUrlString);
+
+        Vector<tidePoint> tidePredictions = getPredictedTides();
+
+        //this now sets up the conditionData to hold the accurate current time, current temperature, the date/time, and the predicted tide level for the time of day
+        conditionData data = new conditionData(current_tide,current_temp,dt,tidePredictions.get(0).getTidePoint());
         return data;
     }
 
@@ -81,42 +86,50 @@ public class serviceController {
         return result.toString();
     }
 
-
-    //  TODO intent to consolidate these into getCurrentValue(String url)
-
-    public double getCurrentTidelevel() throws Exception
+    public double getCurrentValue(String url) throws Exception
     {
-        String tideUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station=9411340&product=water_level&units=english&time_zone=lst_ldt&application=ports_screen&format=json&datum=STND";
-
-        double current_tide = 0;
+        double current_value = 0;
 
         ObjectMapper mapper = new ObjectMapper();
-        JsonNode root = mapper.readTree(getHTML(tideUrlString));
+        JsonNode root = mapper.readTree(getHTML(url));
 
         JsonNode dataNode = root.path("data");
         for(JsonNode node: dataNode)
         {
-            current_tide = node.path("v").asDouble();
+            current_value = node.path("v").asDouble();
         }
 
-        return current_tide;
+        return current_value;
     }
 
-    public double getCurrentTemp() throws Exception
+    public Vector<tidePoint> getPredictedTides() throws Exception
     {
-        String tempUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station=9411340&product=air_temperature&units=english&time_zone=lst_ldt&application=ports_screen&format=json";
+        Date dnow = new Date();
+        SimpleDateFormat date = new SimpleDateFormat("MM/dd/yyyy");
+        SimpleDateFormat time = new SimpleDateFormat("HH:mm");
+        String tidePredUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?begin_date="+date.format(dnow)+"%20"+time.format(dnow)+"&range=24&station=9411340&product=predictions&units=english&time_zone=lst_ldt&format=json&datum=STND";
 
-        double current_temp = 0;
+        Vector<tidePoint> tideNodes = new Vector();
+        String tideDateTime;
+        double level;
+
+
 
         ObjectMapper mapper = new ObjectMapper();
-        JsonNode root = mapper.readTree(getHTML(tempUrlString));
+        JsonNode root = mapper.readTree(getHTML(tidePredUrlString));
 
-        JsonNode dataNode = root.path("data");
+        JsonNode dataNode = root.path("predictions");
         for(JsonNode node: dataNode)
         {
-            current_temp = node.path("v").asDouble();
+            tideDateTime = node.path("t").asText();
+            level = node.path("v").asDouble();
+            tidePoint newTidePoint = new tidePoint(tideDateTime,level);
+            tideNodes.add(newTidePoint);
         }
 
-        return current_temp;
+        tidePoint this1 = tideNodes.get(0);
+        return tideNodes;
     }
+
+    
 }

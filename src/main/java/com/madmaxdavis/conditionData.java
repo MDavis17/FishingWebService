@@ -42,7 +42,7 @@ public class conditionData
     }
 
     @JsonSerialize(using = CustomDateSerializer.class)
-    public DateTime getPredDateTime()
+    public DateTime getDateTime()
     {
         return predictedExtremaDateTime;
     }
