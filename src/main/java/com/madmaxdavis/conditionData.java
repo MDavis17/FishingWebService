@@ -11,6 +11,7 @@ public class conditionData
 {
     double currentTemp;
     double currentTideLevel;
+    String currentTideStatus;
 
     //public enum TideStatus
     //{
@@ -23,12 +24,13 @@ public class conditionData
     DateTime predictedExtremaDateTime;
     double predictedExtremaTideLevel;
 
-    public conditionData(double tide, double temp, DateTime dateTime, double tidePredict) // add tide status
+    public conditionData(double tide, double temp, DateTime dateTime, double tidePredict, String status) // add tide status
     {
         currentTemp = temp;
         currentTideLevel = tide;
         predictedExtremaDateTime = dateTime;
         predictedExtremaTideLevel = tidePredict;
+        currentTideStatus = status;
     }
 
     public double getTemp()
@@ -41,6 +43,11 @@ public class conditionData
         return currentTideLevel;
     }
 
+    public String getTideStatus()
+    {
+        return currentTideStatus;
+    }
+
     @JsonSerialize(using = CustomDateSerializer.class)
     public DateTime getDateTime()
     {
@@ -51,6 +58,5 @@ public class conditionData
     {
         return predictedExtremaTideLevel;
     }
-
 
 }
