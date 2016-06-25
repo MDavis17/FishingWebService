@@ -21,42 +21,51 @@ public class conditionData
     SimpleDateFormat hours = new SimpleDateFormat("HH");
     SimpleDateFormat mins = new SimpleDateFormat("mm");
 
-    DateTime predictedExtremaDateTime;
-    double predictedExtremaTideLevel;
+    DateTime currentExtremaDateTime;
+    double nextExtremaTideLevel;
+    String nextExtremaDateTime;
 
-    public conditionData(double tide, double temp, DateTime dateTime, double tidePredict, String status) // add tide status
+    public conditionData(double tide, double temp, DateTime dateTime, String status, tidePoint extreme) // add tide status
     {
         currentTemp = temp;
         currentTideLevel = tide;
-        predictedExtremaDateTime = dateTime;
-        predictedExtremaTideLevel = tidePredict;
+        currentExtremaDateTime = dateTime;
+        nextExtremaTideLevel = extreme.getTidePoint();
+        nextExtremaDateTime = extreme.getDate();
         currentTideStatus = status;
+
+
     }
 
-    public double getTemp()
+    public double getCurrentTemp()
     {
         return currentTemp;
     }
 
-    public double getCurTide()
+    public double getCurrentTide()
     {
         return currentTideLevel;
     }
 
-    public String getTideStatus()
+    public String getCurrentTideStatus()
     {
         return currentTideStatus;
     }
 
     @JsonSerialize(using = CustomDateSerializer.class)
-    public DateTime getDateTime()
+    public DateTime getCurrentDateTime()
     {
-        return predictedExtremaDateTime;
+        return currentExtremaDateTime;
     }
 
-    public double getPredTide()
+    public double getNextExtremeTide()
     {
-        return predictedExtremaTideLevel;
+        return nextExtremaTideLevel;
+    }
+
+    public String getNextExtremeTime()
+    {
+        return nextExtremaDateTime;
     }
 
 }

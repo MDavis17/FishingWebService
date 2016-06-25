@@ -21,6 +21,7 @@ import org.joda.time.*;
 @RestController
 public class serviceController {
 
+    /*
     public class tidePoint
     {
         String date;
@@ -47,7 +48,7 @@ public class serviceController {
         {
             return tideLevel;
         }
-    }
+    }*/
 
 
     @RequestMapping("/current")
@@ -70,34 +71,12 @@ public class serviceController {
 
         Vector<tidePoint> tidePredictions = getPredictedTides();
 
+        int nextExtremeIndex = getNextExtremeIndex(tidePredictions);
 
-        String tide_status;
-        int number = 14;
-/*
-        switch(getTideStatus(number)) // 0: out of bounds, 1: up, 2: down, 3: even, 4: high, 5: low, -1: nothing happened
-        {
-            case 1:
-                tide_status = "going up at point "+number;
-                break;
-            case 2:
-                tide_status = "going down at point "+number;
-                break;
-            case 3:
-                tide_status = "staying even at point "+number;
-                break;
-            case 4:
-                tide_status = "at a high at point "+number;
-                break;
-            case 5:
-                tide_status = "at a low at point "+number;
-                break;
-            default:
-                tide_status = "unknown";
-                break;
-        }*/
 
+        //double tide, double temp, DateTime dateTime, String status, tidePoint extreme
         //this now sets up the conditionData to hold the accurate current time, current temperature, the date/time, and the predicted tide level for the time of day
-        conditionData data = new conditionData(current_tide,current_temp,dt,tidePredictions.get(number).getTidePoint(),getTideStatus(number));
+        conditionData data = new conditionData(current_tide,current_temp,dt,getTideStatus(0),tidePredictions.get(nextExtremeIndex));
         return data;
     }
 
@@ -159,10 +138,10 @@ public class serviceController {
             tideNodes.add(newTidePoint);
         }
 
-        tidePoint this1 = tideNodes.get(0);
         return tideNodes;
     }
 
+    // TODO refactor to change the number status classifications to be innumerated types. also get rid of unnecessary conversions between types
     public String getTideStatus(int index) throws Exception // 0: out of bounds, 1: up, 2: down, 3: even, 4: high, 5: low, -1: nothing happened
     {
         int status = -1; // nothing happened in function
@@ -176,6 +155,7 @@ public class serviceController {
             current = tidePredictions.get(index);
             tidePoint next = tidePredictions.get(index+1);
             // check all the rightward nodes to get an idea of the trend of the tide
+            // TODO handle the case where this case inhibits an extreme from being discovered
             if(current.getTidePoint() == next.getTidePoint())
             {
                 status = 3; // even
@@ -191,19 +171,24 @@ public class serviceController {
 
             // check all the leftward nodes to see if they are peaks
             // TODO handle the case where a peak high or low is direclty at the first or last value in the vector of predictions
+            /*
             if(index-1 < 0)
             {
-                status = status; // at the first value, so just retain the status
-            }
+                break; // at the first value, so just retain the status
+            }*/
 
-            tidePoint prev = tidePredictions.get(index-1);
-            if(current.getTidePoint() < prev.getTidePoint() && status == 1) // minimum low
+            if(index-1 >= 0)
             {
-                status = 5;
-            }
-            else if(current.getTidePoint() > prev.getTidePoint() && status == 2)    // peak high
-            {
-                status = 4;
+
+                tidePoint prev = tidePredictions.get(index - 1);
+                if ((current.getTidePoint() < prev.getTidePoint() || current.getTidePoint() == prev.getTidePoint()) && status == 1) // minimum low
+                {
+                    status = 5;
+                }
+                else if ((current.getTidePoint() > prev.getTidePoint() || current.getTidePoint() == prev.getTidePoint()) && status == 2)  // peak high
+                {
+                    status = 4;
+                }
             }
         }
 
@@ -213,25 +198,76 @@ public class serviceController {
         switch(status) // 0: out of bounds, 1: up, 2: down, 3: even, 4: high, 5: low, -1: nothing happened
         {
             case 1:
-                tide_status = "going up";
+                tide_status = "up";
                 break;
             case 2:
-                tide_status = "going down";
+                tide_status = "down";
                 break;
             case 3:
-                tide_status = "staying even";
+                tide_status = "even";
                 break;
             case 4:
-                tide_status = "at a high";
+                tide_status = "high";
                 break;
             case 5:
-                tide_status = "at a low";
+                tide_status = "low";
                 break;
             default:
                 tide_status = "unknown";
                 break;
         }
 
-        return tide_status + " at "+current.getDate();
+        return tide_status;
     }
+
+    public int getNextExtremeIndex(Vector<tidePoint> tidePredictions) throws Exception // returns the index of the next extreme in the vector
+    {
+        switch (getTideStatus(0))   // switch on the tide status of the current measurement
+        {
+            case "up":
+            case "low":
+                //look for high tide
+                for(int i = 1; i < tidePredictions.size(); i++)
+                {
+                    if(getTideStatus(i) == "high")
+                    {
+                        return i;
+                    }
+                }
+                break;
+
+            case "high":
+            case "down":
+                //look for low tide
+                for(int i = 1; i < tidePredictions.size(); i++)
+                {
+                    if(getTideStatus(i) == "low")
+                    {
+                        return i;
+                    }
+                }
+                break;
+            default:
+                break;
+        }
+
+
+        return -1; // something went wrong
+    }
+
+    /*
+    public boolean isAnExtreme(String extremeName, Vector<tidePoint> tidePredictions) throws Exception
+    {
+        for(int i = 1; i < tidePredictions.size(); i++)
+        {
+            if(getTideStatus(i) == extremeName)
+            {
+                return true;
+            }
+        }
+        return false;
+    }*/
+
+
+
 }
