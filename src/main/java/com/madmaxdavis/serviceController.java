@@ -16,6 +16,9 @@ import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import org.joda.time.*;
+import org.joda.time.DateTimeZone;
+
+import static java.util.Locale.*;
 
 
 @RestController
@@ -65,7 +68,8 @@ public class serviceController {
 
 
 
-        DateTime dt = new DateTime();
+
+        DateTime dt = new DateTime(DateTimeZone.forID("America/Los_Angeles"));
         double current_tide = getCurrentValue(tideUrlString);
         double current_temp = getCurrentValue(tempUrlString);
 
@@ -73,10 +77,9 @@ public class serviceController {
 
         int nextExtremeIndex = getNextExtremeIndex(tidePredictions);
 
-
         //double tide, double temp, DateTime dateTime, String status, tidePoint extreme
         //this now sets up the conditionData to hold the accurate current time, current temperature, the date/time, and the predicted tide level for the time of day
-        conditionData data = new conditionData(current_tide,current_temp,dt,getTideStatus(0),tidePredictions.get(nextExtremeIndex));
+        conditionData data = new conditionData(current_tide,current_temp,dt/*dateTime*/,getTideStatus(0),tidePredictions.get(nextExtremeIndex));
         return data;
     }
 
