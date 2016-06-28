@@ -56,7 +56,7 @@ public class conditionData
     @JsonSerialize(using = CustomDateSerializer.class)
     public DateTime/*String*/ getCurrentDateTime()
     {
-        return currentDateTime;
+        return new DateTime(DateTimeZone.forID("America/Los_Angeles"));
     }
 
     public double getNextExtremeTide()

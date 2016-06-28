@@ -5,6 +5,8 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.datatype.joda.JodaModule;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,52 +26,21 @@ import static java.util.Locale.*;
 @RestController
 public class serviceController {
 
-    /*
-    public class tidePoint
-    {
-        String date;
-        double tideLevel;
-
-        public tidePoint(String d, double tide)
-        {
-            date = d;
-            tideLevel = tide;
-        }
-
-        public  tidePoint()
-        {
-            date = "";
-            tideLevel = 100;
-        }
-
-        public String getDate()
-        {
-            return date;
-        }
-
-        public double getTidePoint()
-        {
-            return tideLevel;
-        }
-    }*/
-
-
     @RequestMapping("/current")
     public conditionData index() throws Exception
     {
         //may not need this date time stuff here if its only used in the getPredTide function...
-        Date dnow = new Date();
-        SimpleDateFormat date = new SimpleDateFormat("MM/dd/yyyy");
-        SimpleDateFormat time = new SimpleDateFormat("HH:mm");
+        DateTime dnow = new DateTime();//DateTimeZone.forID("America/Los_Angeles"));
+        DateTimeFormatter dtf = DateTimeFormat.forPattern("MM/dd/yyyy%20HH:mm");
 
         String tempUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station=9411340&product=air_temperature&units=english&time_zone=lst_ldt&application=ports_screen&format=json";
         String tideUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station=9411340&product=water_level&units=english&time_zone=lst_ldt&application=ports_screen&format=json&datum=MLLW";
-        String tidePredUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?begin_date="+date.format(dnow)+"%20"+time.format(dnow)+"&range=24&station=9411340&product=predictions&units=english&time_zone=lst_ldt&format=json&datum=MLLW";
+        String tidePredUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?begin_date="+dnow.toString(dtf)/*+"%20"+time.format(dnow)*/+"&range=24&station=9411340&product=predictions&units=english&time_zone=lst_ldt&format=json&datum=MLLW";
 
 
 
 
-        DateTime dt = new DateTime(DateTimeZone.forID("America/Los_Angeles"));
+        //DateTime dt = new DateTime(DateTimeZone.forID("America/Los_Angeles"));
         double current_tide = getCurrentValue(tideUrlString);
         double current_temp = getCurrentValue(tempUrlString);
 
@@ -79,7 +50,7 @@ public class serviceController {
 
         //double tide, double temp, DateTime dateTime, String status, tidePoint extreme
         //this now sets up the conditionData to hold the accurate current time, current temperature, the date/time, and the predicted tide level for the time of day
-        conditionData data = new conditionData(current_tide,current_temp,dt/*dateTime*/,getTideStatus(0),tidePredictions.get(nextExtremeIndex));
+        conditionData data = new conditionData(current_tide,current_temp,dnow/*dateTime*/,getTideStatus(0),tidePredictions.get(nextExtremeIndex));
         return data;
     }
 
@@ -118,10 +89,9 @@ public class serviceController {
 
     public Vector<tidePoint> getPredictedTides() throws Exception
     {
-        Date dnow = new Date();
-        SimpleDateFormat date = new SimpleDateFormat("MM/dd/yyyy");
-        SimpleDateFormat time = new SimpleDateFormat("HH:mm");
-        String tidePredUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?begin_date="+date.format(dnow)+"%20"+time.format(dnow)+"&range=24&station=9411340&product=predictions&units=english&time_zone=lst_ldt&format=json&datum=MLLW";
+        DateTime dnow = new DateTime(DateTimeZone.forID("America/Los_Angeles"));
+        DateTimeFormatter dtf = DateTimeFormat.forPattern("MM/dd/yyyy%20HH:mm");
+        String tidePredUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?begin_date="+dnow.toString(dtf)+"&range=24&station=9411340&product=predictions&units=english&time_zone=lst_ldt&format=json&datum=MLLW";
 
         Vector<tidePoint> tideNodes = new Vector();
         String tideDateTime;
@@ -174,11 +144,6 @@ public class serviceController {
 
             // check all the leftward nodes to see if they are peaks
             // TODO handle the case where a peak high or low is direclty at the first or last value in the vector of predictions
-            /*
-            if(index-1 < 0)
-            {
-                break; // at the first value, so just retain the status
-            }*/
 
             if(index-1 >= 0)
             {
