@@ -30,27 +30,39 @@ public class serviceController {
     public conditionData index() throws Exception
     {
         //may not need this date time stuff here if its only used in the getPredTide function...
-        DateTime dnow = new DateTime();//DateTimeZone.forID("America/Los_Angeles"));
+        DateTime dnow = new DateTime(DateTimeZone.forID("America/Los_Angeles"));
         DateTimeFormatter dtf = DateTimeFormat.forPattern("MM/dd/yyyy%20HH:mm");
 
         String tempUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station=9411340&product=air_temperature&units=english&time_zone=lst_ldt&application=ports_screen&format=json";
         String tideUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station=9411340&product=water_level&units=english&time_zone=lst_ldt&application=ports_screen&format=json&datum=MLLW";
-        String tidePredUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?begin_date="+dnow.toString(dtf)/*+"%20"+time.format(dnow)*/+"&range=24&station=9411340&product=predictions&units=english&time_zone=lst_ldt&format=json&datum=MLLW";
+        String tidePredUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?begin_date="+dnow.toString(dtf)+"&range=24&station=9411340&product=predictions&units=english&time_zone=lst_ldt&format=json&datum=MLLW";
 
 
-
-
-        //DateTime dt = new DateTime(DateTimeZone.forID("America/Los_Angeles"));
         double current_tide = getCurrentValue(tideUrlString);
         double current_temp = getCurrentValue(tempUrlString);
 
         Vector<tidePoint> tidePredictions = getPredictedTides();
 
         int nextExtremeIndex = getNextExtremeIndex(tidePredictions);
+        tidePoint nextExtreme = tidePredictions.get(nextExtremeIndex);
 
-        //double tide, double temp, DateTime dateTime, String status, tidePoint extreme
+
+        String nextTime = nextExtreme.getDate();
+
+        String year = nextTime.substring(0,4);
+        String month = nextTime.substring(5,7);
+        String day = nextTime.substring(8,10);
+        String time= nextTime.substring(11,16);
+        String hour = time.substring(0,2);
+
+        // get temp at time attached to the next extreme tide point
+
+        String nextTempUrl = "http://api.wunderground.com/api/52d8fa4f8cf52c6a/hourly/q/CA/Santa_Barbara.json";
+        int next_temp = getNextTemp(nextTempUrl,Integer.parseInt(hour));
+
+
         //this now sets up the conditionData to hold the accurate current time, current temperature, the date/time, and the predicted tide level for the time of day
-        conditionData data = new conditionData(current_tide,current_temp,dnow/*dateTime*/,getTideStatus(0),tidePredictions.get(nextExtremeIndex));
+        conditionData data = new conditionData(current_tide,current_temp,dnow,getTideStatus(0),nextExtreme,next_temp);
         return data;
     }
 
@@ -71,6 +83,30 @@ public class serviceController {
         return result.toString();
     }
 
+    public int getNextTemp(String url, int exHour) throws Exception
+    {
+        int temp = 0;
+        int itrHour;
+
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode root = mapper.readTree(getHTML(url));
+
+        JsonNode dataNode = root.path("hourly_forecast");
+        for(JsonNode node: dataNode)
+        {
+            JsonNode currentNode = node.path("FCTTIME");
+            itrHour = currentNode.path("hour").asInt();
+            if(itrHour == exHour)
+            {
+                currentNode = node.path("temp");
+                temp = currentNode.path("english").asInt();
+                return temp;
+            }
+        }
+
+        return temp;
+    }
+
     public double getCurrentValue(String url) throws Exception
     {
         double current_value = 0;
@@ -85,6 +121,22 @@ public class serviceController {
         }
 
         return current_value;
+    }
+
+    public String getTime(String url) throws Exception
+    {
+        String time = "";
+
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode root = mapper.readTree(getHTML(url));
+
+        JsonNode dataNode = root.path("data");
+        for(JsonNode node: dataNode)
+        {
+            time = node.path("t").asText();
+        }
+
+        return time;
     }
 
     public Vector<tidePoint> getPredictedTides() throws Exception
@@ -114,7 +166,7 @@ public class serviceController {
         return tideNodes;
     }
 
-    // TODO refactor to change the number status classifications to be innumerated types. also get rid of unnecessary conversions between types
+    // TODO refactor to change the number status classifications to be enumerated types. also get rid of unnecessary conversions between types
     public String getTideStatus(int index) throws Exception // 0: out of bounds, 1: up, 2: down, 3: even, 4: high, 5: low, -1: nothing happened
     {
         int status = -1; // nothing happened in function
@@ -143,7 +195,7 @@ public class serviceController {
             }
 
             // check all the leftward nodes to see if they are peaks
-            // TODO handle the case where a peak high or low is direclty at the first or last value in the vector of predictions
+            // TODO handle the case where a peak high or low is directly at the first or last value in the vector of predictions
 
             if(index-1 >= 0)
             {
@@ -219,23 +271,6 @@ public class serviceController {
                 break;
         }
 
-
         return -1; // something went wrong
     }
-
-    /*
-    public boolean isAnExtreme(String extremeName, Vector<tidePoint> tidePredictions) throws Exception
-    {
-        for(int i = 1; i < tidePredictions.size(); i++)
-        {
-            if(getTideStatus(i) == extremeName)
-            {
-                return true;
-            }
-        }
-        return false;
-    }*/
-
-
-
 }

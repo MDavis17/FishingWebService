@@ -13,10 +13,10 @@ public class conditionData
     double currentTideLevel;
     String currentTideStatus;
 
-    //public enum TideStatus
-    //{
-    //    UP, HIGH, DOWN, LOW
-    //}
+    public enum TideStatus
+    {
+        UP, HIGH, DOWN, LOW
+    }
 
     SimpleDateFormat hours = new SimpleDateFormat("HH");
     SimpleDateFormat mins = new SimpleDateFormat("mm");
@@ -24,9 +24,9 @@ public class conditionData
     DateTime currentDateTime;
     double nextExtremaTideLevel;
     String nextExtremaDateTime;
-    //String currentDateTime;
+    double nextExtremeTemp;
 
-    public conditionData(double tide, double temp, DateTime/*String*/ dateTime, String status, tidePoint extreme) // add tide status
+    public conditionData(double tide, double temp, DateTime dateTime, String status, tidePoint extreme, double nextTemp) // add tide status
     {
         currentTemp = temp;
         currentTideLevel = tide;
@@ -34,6 +34,7 @@ public class conditionData
         nextExtremaTideLevel = extreme.getTidePoint();
         nextExtremaDateTime = extreme.getDate();
         currentTideStatus = status;
+        nextExtremeTemp = nextTemp;
 
 
     }
@@ -54,7 +55,7 @@ public class conditionData
     }
 
     @JsonSerialize(using = CustomDateSerializer.class)
-    public DateTime/*String*/ getCurrentDateTime()
+    public DateTime getCurrentDateTime()
     {
         return new DateTime(DateTimeZone.forID("America/Los_Angeles"));
     }
@@ -68,5 +69,7 @@ public class conditionData
     {
         return nextExtremaDateTime;
     }
+
+    public double getNextTemp() { return nextExtremeTemp; }
 
 }
