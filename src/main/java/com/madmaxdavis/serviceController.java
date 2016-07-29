@@ -7,9 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.datatype.joda.JodaModule;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.*;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -26,16 +24,44 @@ import static java.util.Locale.*;
 @RestController
 public class serviceController {
 
-    @RequestMapping("/current")
-    public conditionData index() throws Exception
+    @RequestMapping("/current/{station}")
+    public @ResponseBody conditionData index(@PathVariable("station") String id) throws Exception
     {
+
+        String stationId = id;
+
+        // list of stations and thier ids: https://tidesandcurrents.noaa.gov/stations.html?type=All%20Stations&sort=0#California
+        //9411340 santa barbara
+        //9414290 san francisco
+        //9410840 santa monica
+
+        String nextTempUrl;
+        switch (stationId) {
+            // santa barbara
+            case "9411340":
+                nextTempUrl = "http://api.wunderground.com/api/52d8fa4f8cf52c6a/hourly/q/CA/Santa_Barbara.json";
+                break;
+            //san fransisco
+            case "9414290":
+                nextTempUrl = "http://api.wunderground.com/api/52d8fa4f8cf52c6a/hourly/q/CA/San_Francisco.json";
+                break;
+            //santa monica
+            case "9410840":
+                nextTempUrl = "http://api.wunderground.com/api/52d8fa4f8cf52c6a/hourly/q/CA/Santa_Monica.json";
+                break;
+            default:
+                nextTempUrl = " ";
+                break;
+        }
+
+
         //may not need this date time stuff here if its only used in the getPredTide function...
         DateTime dnow = new DateTime(DateTimeZone.forID("America/Los_Angeles"));
         DateTimeFormatter dtf = DateTimeFormat.forPattern("MM/dd/yyyy%20HH:mm");
 
-        String tempUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station=9411340&product=air_temperature&units=english&time_zone=lst_ldt&application=ports_screen&format=json";
-        String tideUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station=9411340&product=water_level&units=english&time_zone=lst_ldt&application=ports_screen&format=json&datum=MLLW";
-        String tidePredUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?begin_date="+dnow.toString(dtf)+"&range=24&station=9411340&product=predictions&units=english&time_zone=lst_ldt&format=json&datum=MLLW";
+        String tempUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station="+stationId+"&product=air_temperature&units=english&time_zone=lst_ldt&application=ports_screen&format=json";
+        String tideUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station="+stationId+"&product=water_level&units=english&time_zone=lst_ldt&application=ports_screen&format=json&datum=MLLW";
+        String tidePredUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?begin_date="+dnow.toString(dtf)+"&range=24&station="+stationId+"&product=predictions&units=english&time_zone=lst_ldt&format=json&datum=MLLW";
 
 
         double current_tide = getCurrentValue(tideUrlString);
@@ -57,12 +83,12 @@ public class serviceController {
 
         // get temp at time attached to the next extreme tide point
 
-        String nextTempUrl = "http://api.wunderground.com/api/52d8fa4f8cf52c6a/hourly/q/CA/Santa_Barbara.json";
+
         int next_temp = getNextTemp(nextTempUrl,Integer.parseInt(hour));
 
 
         //this now sets up the conditionData to hold the accurate current time, current temperature, the date/time, and the predicted tide level for the time of day
-        conditionData data = new conditionData(current_tide,current_temp,dnow,getTideStatus(0),nextExtreme,next_temp);
+        conditionData data = new conditionData(current_tide,current_temp,dnow,getTideStatus(0),nextExtreme,next_temp,stationId);
         return data;
     }
 
