@@ -30,11 +30,12 @@ public class serviceController {
 
         String stationId = id;
 
-        // list of stations and thier ids: https://tidesandcurrents.noaa.gov/stations.html?type=All%20Stations&sort=0#California
+        // list of stations and their ids: https://tidesandcurrents.noaa.gov/stations.html?type=All%20Stations&sort=0#California
         //9411340 santa barbara
         //9414290 san francisco
         //9410840 santa monica
 
+        /*
         String nextTempUrl;
         switch (stationId) {
             // santa barbara
@@ -52,7 +53,7 @@ public class serviceController {
             default:
                 nextTempUrl = " ";
                 break;
-        }
+        }*/
 
 
         //may not need this date time stuff here if its only used in the getPredTide function...
@@ -66,6 +67,9 @@ public class serviceController {
 
         double current_tide = getCurrentValue(tideUrlString);
         double current_temp = getCurrentValue(tempUrlString);
+        String stationName = getStationName(tideUrlString).replace(" ","_");
+
+        String nextTempUrl = "http://api.wunderground.com/api/52d8fa4f8cf52c6a/hourly/q/CA/"+stationName+".json";
 
         Vector<tidePoint> tidePredictions = getPredictedTides();
 
@@ -88,7 +92,7 @@ public class serviceController {
 
 
         //this now sets up the conditionData to hold the accurate current time, current temperature, the date/time, and the predicted tide level for the time of day
-        conditionData data = new conditionData(current_tide,current_temp,dnow,getTideStatus(0),nextExtreme,next_temp,stationId);
+        conditionData data = new conditionData(current_tide,current_temp,dnow,getTideStatus(0),nextExtreme,next_temp,stationName);
         return data;
     }
 
@@ -147,6 +151,15 @@ public class serviceController {
         }
 
         return current_value;
+    }
+
+    public String getStationName(String url) throws Exception
+    {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode root = mapper.readTree(getHTML(url));
+
+        JsonNode dataNode = root.path("metadata");
+        return dataNode.path("name").asText();
     }
 
     public String getTime(String url) throws Exception

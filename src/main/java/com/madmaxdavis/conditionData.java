@@ -25,9 +25,9 @@ public class conditionData
     double nextExtremaTideLevel;
     String nextExtremaDateTime;
     double nextExtremeTemp;
-    String stationID;
+    String stationName;
 
-    public conditionData(double tide, double temp, DateTime dateTime, String status, tidePoint extreme, double nextTemp,String id) // add tide status
+    public conditionData(double tide, double temp, DateTime dateTime, String status, tidePoint extreme, double nextTemp,String name) // add tide status
     {
         currentTemp = temp;
         currentTideLevel = tide;
@@ -36,7 +36,7 @@ public class conditionData
         nextExtremaDateTime = extreme.getDate();
         currentTideStatus = status;
         nextExtremeTemp = nextTemp;
-        stationID = id;
+        stationName = name;
     }
 
     public double getCurrentTemp()
@@ -72,6 +72,6 @@ public class conditionData
 
     public double getNextTemp() { return nextExtremeTemp; }
 
-    public String getStationID() { return stationID; }
+    public String getStationName() { return stationName; }
 
 }
