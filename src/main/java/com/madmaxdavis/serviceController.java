@@ -35,26 +35,6 @@ public class serviceController {
         //9414290 san francisco
         //9410840 santa monica
 
-        /*
-        String nextTempUrl;
-        switch (stationId) {
-            // santa barbara
-            case "9411340":
-                nextTempUrl = "http://api.wunderground.com/api/52d8fa4f8cf52c6a/hourly/q/CA/Santa_Barbara.json";
-                break;
-            //san fransisco
-            case "9414290":
-                nextTempUrl = "http://api.wunderground.com/api/52d8fa4f8cf52c6a/hourly/q/CA/San_Francisco.json";
-                break;
-            //santa monica
-            case "9410840":
-                nextTempUrl = "http://api.wunderground.com/api/52d8fa4f8cf52c6a/hourly/q/CA/Santa_Monica.json";
-                break;
-            default:
-                nextTempUrl = " ";
-                break;
-        }*/
-
 
         //may not need this date time stuff here if its only used in the getPredTide function...
         DateTime dnow = new DateTime(DateTimeZone.forID("America/Los_Angeles"));
@@ -67,9 +47,15 @@ public class serviceController {
 
         double current_tide = getCurrentValue(tideUrlString);
         double current_temp = getCurrentValue(tempUrlString);
-        String stationName = getStationName(tideUrlString).replace(" ","_");
+        String lat = getLat(tideUrlString);
+        String lon = getLon(tideUrlString);
 
-        String nextTempUrl = "http://api.wunderground.com/api/52d8fa4f8cf52c6a/hourly/q/CA/"+stationName+".json";
+        String cityNameUrl = "https://maps.googleapis.com/maps/api/geocode/json?latlng="+lat+","+lon+"&key=AIzaSyB68dw86kU2w99PEiOMsmuRBpyj0Ek-128";
+
+        String stationName = getStationName(tideUrlString).replace(" ","_");
+        String cityName = getCity(cityNameUrl).replace(" ","_");
+
+        String nextTempUrl = "http://api.wunderground.com/api/52d8fa4f8cf52c6a/hourly/q/CA/"+cityName+".json";
 
         Vector<tidePoint> tidePredictions = getPredictedTides();
 
@@ -92,7 +78,7 @@ public class serviceController {
 
 
         //this now sets up the conditionData to hold the accurate current time, current temperature, the date/time, and the predicted tide level for the time of day
-        conditionData data = new conditionData(current_tide,current_temp,dnow,getTideStatus(0),nextExtreme,next_temp,stationName);
+        conditionData data = new conditionData(current_tide,current_temp,dnow,getTideStatus(0),nextExtreme,next_temp,stationName,cityName);
         return data;
     }
 
@@ -153,6 +139,50 @@ public class serviceController {
         return current_value;
     }
 
+    //https://maps.googleapis.com/maps/api/geocode/json?latlng=40.714224,-73.961452&key=AIzaSyB68dw86kU2w99PEiOMsmuRBpyj0Ek-128
+    public String getCity(String url) throws Exception
+    {
+
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode root = mapper.readTree(getHTML(url));
+
+        JsonNode dataNode = root.path("results");
+        int a = 0;
+        for(JsonNode outter_node: dataNode)
+        {
+                JsonNode addressNode = outter_node.path("address_components");
+                for (JsonNode inner_node : addressNode)
+                {
+                        JsonNode typeNode = inner_node.path("types");
+                        for (JsonNode typeValue : typeNode)
+                        {
+                            if (typeValue.asText().contains("locality"))
+                            {
+                                return inner_node.path("long_name").asText();
+                            }
+                        }
+                }
+        }
+
+        return "";
+    }
+
+    public String getLat(String url) throws Exception
+    {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode root = mapper.readTree(getHTML(url));
+
+        JsonNode dataNode = root.path("metadata");
+        return dataNode.path("lat").asText();
+    }
+    public String getLon(String url) throws Exception
+    {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode root = mapper.readTree(getHTML(url));
+
+        JsonNode dataNode = root.path("metadata");
+        return dataNode.path("lon").asText();
+    }
     public String getStationName(String url) throws Exception
     {
         ObjectMapper mapper = new ObjectMapper();
