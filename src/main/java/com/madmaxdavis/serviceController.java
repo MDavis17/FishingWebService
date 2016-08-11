@@ -147,7 +147,6 @@ public class serviceController {
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");
         BufferedReader rd = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-        int a = 0;
         String line;
         while ((line = rd.readLine()) != null)
         {
@@ -204,7 +203,6 @@ public class serviceController {
         JsonNode root = mapper.readTree(getViaHTTP(url));
 
         JsonNode dataNode = root.path("results");
-        int a = 0;
         for(JsonNode outter_node: dataNode)
         {
             JsonNode addressNode = outter_node.path("address_components");
