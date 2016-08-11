@@ -1,61 +1,63 @@
 package com.madmaxdavis;
 
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.datatype.joda.JodaModule;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.springframework.web.bind.annotation.*;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.net.*;
 import java.io.*;
-import java.text.SimpleDateFormat;
 import java.util.*;
 import org.joda.time.*;
 import org.joda.time.DateTimeZone;
 
-import static java.util.Locale.*;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+
+import java.lang.Math;
+
+import org.w3c.dom.*;
 
 
 @RestController
 public class serviceController {
 
-    @RequestMapping("/current/{station}")
-    public @ResponseBody conditionData index(@PathVariable("station") String id) throws Exception
+    @RequestMapping("/current/{latitude},{longitude:.+}")
+    public @ResponseBody conditionData index(@PathVariable("latitude") double latitude, @PathVariable("longitude") double longitude) throws Exception
     {
+        double searchLat = latitude;
+        double searchLong = longitude;
 
-        String stationId = id;
+        // get nearest station to the provided lat-long
+        Station nearestStation = getNearestStation(searchLat,searchLong);
 
         // list of stations and their ids: https://tidesandcurrents.noaa.gov/stations.html?type=All%20Stations&sort=0#California
-        //9411340 santa barbara
         //9414290 san francisco
+        //9411340 santa barbara
         //9410840 santa monica
 
-
-        //may not need this date time stuff here if its only used in the getPredTide function...
         DateTime dnow = new DateTime(DateTimeZone.forID("America/Los_Angeles"));
         DateTimeFormatter dtf = DateTimeFormat.forPattern("MM/dd/yyyy%20HH:mm");
 
-        String tempUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station="+stationId+"&product=air_temperature&units=english&time_zone=lst_ldt&application=ports_screen&format=json";
-        String tideUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station="+stationId+"&product=water_level&units=english&time_zone=lst_ldt&application=ports_screen&format=json&datum=MLLW";
-        String tidePredUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?begin_date="+dnow.toString(dtf)+"&range=24&station="+stationId+"&product=predictions&units=english&time_zone=lst_ldt&format=json&datum=MLLW";
-
+        String tempUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station="+nearestStation.getID()+"&product=air_temperature&units=english&time_zone=lst_ldt&application=ports_screen&format=json";
+        String tideUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station="+nearestStation.getID()+"&product=water_level&units=english&time_zone=lst_ldt&application=ports_screen&format=json&datum=MLLW";
+        String tidePredUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?begin_date="+dnow.toString(dtf)+"&range=24&station="+nearestStation.getID()+"&product=predictions&units=english&time_zone=lst_ldt&format=json&datum=MLLW";
 
         double current_tide = getCurrentValue(tideUrlString);
         double current_temp = getCurrentValue(tempUrlString);
-        String lat = getLat(tideUrlString);
-        String lon = getLon(tideUrlString);
+        String stationLat = getLat(tideUrlString);
+        String stationLong = getLon(tideUrlString);
 
-        String cityNameUrl = "https://maps.googleapis.com/maps/api/geocode/json?latlng="+lat+","+lon+"&key=AIzaSyB68dw86kU2w99PEiOMsmuRBpyj0Ek-128";
+        // getting the city that the station is in
+        String locationUrl = "https://maps.googleapis.com/maps/api/geocode/json?latlng="+stationLat+","+stationLong+"&key=AIzaSyB68dw86kU2w99PEiOMsmuRBpyj0Ek-128";
 
-        String stationName = getStationName(tideUrlString).replace(" ","_");
-        String cityName = getCity(cityNameUrl).replace(" ","_");
+        String stationName = nearestStation.getName().replace(" ","_");
+        String cityName = getLocationData(locationUrl,"city").replace(" ","_");
+        String stateAbrv = getLocationData(locationUrl,"state");
 
-        String nextTempUrl = "http://api.wunderground.com/api/52d8fa4f8cf52c6a/hourly/q/CA/"+cityName+".json";
+        String nextTempUrl = "http://api.wunderground.com/api/52d8fa4f8cf52c6a/hourly/q/"+stateAbrv+"/"+cityName+".json";
 
         Vector<tidePoint> tidePredictions = getPredictedTides();
 
@@ -72,8 +74,6 @@ public class serviceController {
         String hour = time.substring(0,2);
 
         // get temp at time attached to the next extreme tide point
-
-
         int next_temp = getNextTemp(nextTempUrl,Integer.parseInt(hour));
 
 
@@ -82,7 +82,64 @@ public class serviceController {
         return data;
     }
 
-    public static String getHTML(String urlString) throws Exception
+    // TODO: put this function and the distance into a separate controller
+    public static Station getNearestStation(double lat, double lon) throws Exception {
+
+        URL url = new URL("http://opendap.co-ops.nos.noaa.gov/stations/stationsXML.jsp");
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+
+        DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
+        Document doc = dBuilder.parse(conn.getInputStream());
+        NodeList stationsList = doc.getElementsByTagName("station");
+
+        int nearestStationID = 0;
+        double nearestStationDistance = 0;
+        String nearestStationName = "";
+        double nearestLat = 0;
+        double nearestlong = 0;
+        String nearestStationState = "";
+
+        for(int i = 0; i < stationsList.getLength(); i++) {
+            Node node = stationsList.item(i);
+
+            String stName = node.getAttributes().getNamedItem("name").getNodeValue();
+            int stID = Integer.parseInt(node.getAttributes().getNamedItem("ID").getNodeValue());
+
+
+            Element e = (Element) node;
+            Element metadata = (Element) e.getElementsByTagName("metadata").item(0);
+            Element loc = (Element) metadata.getElementsByTagName("location").item(0);
+
+            double latitude = Double.parseDouble(loc.getElementsByTagName("lat").item(0).getChildNodes().item(0).getNodeValue());
+            double longitude = Double.parseDouble(loc.getElementsByTagName("long").item(0).getChildNodes().item(0).getNodeValue());
+            String state = "";
+            if(loc.getElementsByTagName("state").item(0).getChildNodes().item(0) != null)
+                state = loc.getElementsByTagName("state").item(0).getChildNodes().item(0).getNodeValue();
+            double currentDistance = distance(lat,lon,latitude,longitude);
+
+            if(nearestStationID == 0) {
+                nearestStationID = stID;
+                nearestStationDistance = currentDistance;
+            }
+            else if(currentDistance < nearestStationDistance) {
+                nearestStationID = stID;
+                nearestStationDistance = currentDistance;
+                nearestStationName = stName;
+                nearestLat = latitude;
+                nearestlong = longitude;
+                nearestStationState = state;
+            }
+        }
+        return new Station(nearestStationName,nearestStationID,nearestLat,nearestlong,nearestStationState);
+    }
+
+    public static double distance(double lat1, double lon1, double lat2, double lon2) {
+        return Math.sqrt(Math.pow((lat1-lat2),2) + Math.pow((lon1-lon2),2));
+    }
+
+    public static String getViaHTTP(String urlString) throws Exception
     {
         StringBuilder result = new StringBuilder();
 
@@ -90,6 +147,7 @@ public class serviceController {
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");
         BufferedReader rd = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+        int a = 0;
         String line;
         while ((line = rd.readLine()) != null)
         {
@@ -105,7 +163,7 @@ public class serviceController {
         int itrHour;
 
         ObjectMapper mapper = new ObjectMapper();
-        JsonNode root = mapper.readTree(getHTML(url));
+        JsonNode root = mapper.readTree(getViaHTTP(url));
 
         JsonNode dataNode = root.path("hourly_forecast");
         for(JsonNode node: dataNode)
@@ -128,7 +186,7 @@ public class serviceController {
         double current_value = 0;
 
         ObjectMapper mapper = new ObjectMapper();
-        JsonNode root = mapper.readTree(getHTML(url));
+        JsonNode root = mapper.readTree(getViaHTTP(url));
 
         JsonNode dataNode = root.path("data");
         for(JsonNode node: dataNode)
@@ -139,29 +197,32 @@ public class serviceController {
         return current_value;
     }
 
-    //https://maps.googleapis.com/maps/api/geocode/json?latlng=40.714224,-73.961452&key=AIzaSyB68dw86kU2w99PEiOMsmuRBpyj0Ek-128
-    public String getCity(String url) throws Exception
+    public String getLocationData(String url, String field) throws Exception
     {
 
         ObjectMapper mapper = new ObjectMapper();
-        JsonNode root = mapper.readTree(getHTML(url));
+        JsonNode root = mapper.readTree(getViaHTTP(url));
 
         JsonNode dataNode = root.path("results");
         int a = 0;
         for(JsonNode outter_node: dataNode)
         {
-                JsonNode addressNode = outter_node.path("address_components");
-                for (JsonNode inner_node : addressNode)
+            JsonNode addressNode = outter_node.path("address_components");
+            for (JsonNode inner_node : addressNode)
+            {
+                JsonNode typeNode = inner_node.path("types");
+                for (JsonNode typeValue : typeNode)
                 {
-                        JsonNode typeNode = inner_node.path("types");
-                        for (JsonNode typeValue : typeNode)
-                        {
-                            if (typeValue.asText().contains("locality"))
-                            {
-                                return inner_node.path("long_name").asText();
-                            }
-                        }
+                    if (field == "city" && typeValue.asText().contains("locality"))
+                    {
+                        return inner_node.path("long_name").asText();
+                    }
+                    else if (field == "state" && typeValue.asText().contains("administrative_area_level_1"))
+                    {
+                        return inner_node.path("short_name").asText();
+                    }
                 }
+            }
         }
 
         return "";
@@ -170,42 +231,19 @@ public class serviceController {
     public String getLat(String url) throws Exception
     {
         ObjectMapper mapper = new ObjectMapper();
-        JsonNode root = mapper.readTree(getHTML(url));
+        JsonNode root = mapper.readTree(getViaHTTP(url));
 
         JsonNode dataNode = root.path("metadata");
         return dataNode.path("lat").asText();
     }
+
     public String getLon(String url) throws Exception
     {
         ObjectMapper mapper = new ObjectMapper();
-        JsonNode root = mapper.readTree(getHTML(url));
+        JsonNode root = mapper.readTree(getViaHTTP(url));
 
         JsonNode dataNode = root.path("metadata");
         return dataNode.path("lon").asText();
-    }
-    public String getStationName(String url) throws Exception
-    {
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode root = mapper.readTree(getHTML(url));
-
-        JsonNode dataNode = root.path("metadata");
-        return dataNode.path("name").asText();
-    }
-
-    public String getTime(String url) throws Exception
-    {
-        String time = "";
-
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode root = mapper.readTree(getHTML(url));
-
-        JsonNode dataNode = root.path("data");
-        for(JsonNode node: dataNode)
-        {
-            time = node.path("t").asText();
-        }
-
-        return time;
     }
 
     public Vector<tidePoint> getPredictedTides() throws Exception
@@ -218,10 +256,8 @@ public class serviceController {
         String tideDateTime;
         double level;
 
-
-
         ObjectMapper mapper = new ObjectMapper();
-        JsonNode root = mapper.readTree(getHTML(tidePredUrlString));
+        JsonNode root = mapper.readTree(getViaHTTP(tidePredUrlString));
 
         JsonNode dataNode = root.path("predictions");
         for(JsonNode node: dataNode)
@@ -280,8 +316,6 @@ public class serviceController {
                 }
             }
         }
-
-
 
         String tide_status;
         switch(status) // 0: out of bounds, 1: up, 2: down, 3: even, 4: high, 5: low, -1: nothing happened
