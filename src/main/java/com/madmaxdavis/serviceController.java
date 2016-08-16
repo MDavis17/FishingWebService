@@ -37,14 +37,14 @@ public class serviceController {
         DateTime dnow = new DateTime(DateTimeZone.forID("America/Los_Angeles"));
         DateTimeFormatter dtf = DateTimeFormat.forPattern("MM/dd/yyyy%20HH:mm");
 
-        String tempUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station="+/*nearestStation.getID()*/station_id+"&product=air_temperature&units=english&time_zone=lst_ldt&application=ports_screen&format=json";
-        String tideUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station="+/*nearestStation.getID()*/station_id+"&product=water_level&units=english&time_zone=lst_ldt&application=ports_screen&format=json&datum=MLLW";
-        String tidePredUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?begin_date="+dnow.toString(dtf)+"&range=24&station="+/*nearestStation.getID()*/station_id+"&product=predictions&units=english&time_zone=lst_ldt&format=json&datum=MLLW";
+        String tempUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station="+station_id+"&product=air_temperature&units=english&time_zone=lst_ldt&application=ports_screen&format=json";
+        String tideUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station="+station_id+"&product=water_level&units=english&time_zone=lst_ldt&application=ports_screen&format=json&datum=MLLW";
+        String tidePredUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?begin_date="+dnow.toString(dtf)+"&range=24&station="+station_id+"&product=predictions&units=english&time_zone=lst_ldt&format=json&datum=MLLW";
 
         double current_tide = getCurrentValue(tideUrlString);
         double current_temp = getCurrentValue(tempUrlString);
-        String stationLat = getLat(tideUrlString);
-        String stationLong = getLon(tideUrlString);
+        double stationLat = Double.parseDouble(getLat(tideUrlString));
+        double stationLong = Double.parseDouble(getLon(tideUrlString));
 
         // getting the city that the station is in
         String locationUrl = "https://maps.googleapis.com/maps/api/geocode/json?latlng="+stationLat+","+stationLong+"&key=AIzaSyB68dw86kU2w99PEiOMsmuRBpyj0Ek-128";
@@ -74,7 +74,7 @@ public class serviceController {
 
 
         //this now sets up the conditionData to hold the accurate current time, current temperature, the date/time, and the predicted tide level for the time of day
-        conditionData data = new conditionData(current_tide,current_temp,dnow,getTideStatus(0),nextExtreme,next_temp,stationName,cityName);
+        conditionData data = new conditionData(current_tide,current_temp,dnow,getTideStatus(0),nextExtreme,next_temp,stationName,stationLat,stationLong,cityName);
         return data;
     }
 
