@@ -17,21 +17,17 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import java.lang.Math;
+import java.util.concurrent.locks.Condition;
 
 import org.w3c.dom.*;
 
 
 @RestController
 public class serviceController {
-
-    @RequestMapping("/current/{latitude},{longitude:.+}")
-    public @ResponseBody conditionData index(@PathVariable("latitude") double latitude, @PathVariable("longitude") double longitude) throws Exception
+    @RequestMapping("/current/{stationID}")
+    public @ResponseBody conditionData index(@PathVariable("stationID") int ID) throws Exception
     {
-        double searchLat = latitude;
-        double searchLong = longitude;
-
-        // get nearest station to the provided lat-long
-        Station nearestStation = getNearestStation(searchLat,searchLong);
+        int station_id = ID;
 
         // list of stations and their ids: https://tidesandcurrents.noaa.gov/stations.html?type=All%20Stations&sort=0#California
         //9414290 san francisco
@@ -41,9 +37,9 @@ public class serviceController {
         DateTime dnow = new DateTime(DateTimeZone.forID("America/Los_Angeles"));
         DateTimeFormatter dtf = DateTimeFormat.forPattern("MM/dd/yyyy%20HH:mm");
 
-        String tempUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station="+nearestStation.getID()+"&product=air_temperature&units=english&time_zone=lst_ldt&application=ports_screen&format=json";
-        String tideUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station="+nearestStation.getID()+"&product=water_level&units=english&time_zone=lst_ldt&application=ports_screen&format=json&datum=MLLW";
-        String tidePredUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?begin_date="+dnow.toString(dtf)+"&range=24&station="+nearestStation.getID()+"&product=predictions&units=english&time_zone=lst_ldt&format=json&datum=MLLW";
+        String tempUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station="+/*nearestStation.getID()*/station_id+"&product=air_temperature&units=english&time_zone=lst_ldt&application=ports_screen&format=json";
+        String tideUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?date=latest&station="+/*nearestStation.getID()*/station_id+"&product=water_level&units=english&time_zone=lst_ldt&application=ports_screen&format=json&datum=MLLW";
+        String tidePredUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?begin_date="+dnow.toString(dtf)+"&range=24&station="+/*nearestStation.getID()*/station_id+"&product=predictions&units=english&time_zone=lst_ldt&format=json&datum=MLLW";
 
         double current_tide = getCurrentValue(tideUrlString);
         double current_temp = getCurrentValue(tempUrlString);
@@ -53,7 +49,7 @@ public class serviceController {
         // getting the city that the station is in
         String locationUrl = "https://maps.googleapis.com/maps/api/geocode/json?latlng="+stationLat+","+stationLong+"&key=AIzaSyB68dw86kU2w99PEiOMsmuRBpyj0Ek-128";
 
-        String stationName = nearestStation.getName().replace(" ","_");
+        String stationName = getStationName(tideUrlString).replace(" ","_");
         String cityName = getLocationData(locationUrl,"city").replace(" ","_");
         String stateAbrv = getLocationData(locationUrl,"state");
 
@@ -83,7 +79,8 @@ public class serviceController {
     }
 
     // TODO: put this function and the distance into a separate controller
-    public static Station getNearestStation(double lat, double lon) throws Exception {
+    @RequestMapping("/stationsearch/{latitude},{longitude:.+}")
+    public @ResponseBody Station getNearestStation(@PathVariable("latitude") double lat, @PathVariable("longitude") double lon) throws Exception {
 
         URL url = new URL("http://opendap.co-ops.nos.noaa.gov/stations/stationsXML.jsp");
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -137,6 +134,12 @@ public class serviceController {
 
     public static double distance(double lat1, double lon1, double lat2, double lon2) {
         return Math.sqrt(Math.pow((lat1-lat2),2) + Math.pow((lon1-lon2),2));
+    }
+
+    @RequestMapping("/conditions/{latitude},{longitude:.+}")
+    public @ResponseBody conditionData dataFromLocation(@PathVariable("latitude") double lat, @PathVariable("longitude") double lon) throws Exception {
+        Station stat = getNearestStation(lat,lon);
+        return index(stat.ID);
     }
 
     public static String getViaHTTP(String urlString) throws Exception
@@ -242,6 +245,15 @@ public class serviceController {
 
         JsonNode dataNode = root.path("metadata");
         return dataNode.path("lon").asText();
+    }
+
+    public String getStationName(String url) throws Exception
+    {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode root = mapper.readTree(getViaHTTP(url));
+
+        JsonNode dataNode = root.path("metadata");
+        return dataNode.path("name").asText();
     }
 
     public Vector<tidePoint> getPredictedTides() throws Exception
