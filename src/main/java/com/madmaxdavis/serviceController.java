@@ -55,9 +55,9 @@ public class serviceController {
 
         String nextTempUrl = "http://api.wunderground.com/api/52d8fa4f8cf52c6a/hourly/q/"+stateAbrv+"/"+cityName+".json";
 
-        Vector<tidePoint> tidePredictions = getPredictedTides();
+        Vector<tidePoint> tidePredictions = getPredictedTides(station_id);
 
-        int nextExtremeIndex = getNextExtremeIndex(tidePredictions);
+        int nextExtremeIndex = getNextExtremeIndex(tidePredictions, station_id);
         tidePoint nextExtreme = tidePredictions.get(nextExtremeIndex);
 
 
@@ -74,7 +74,7 @@ public class serviceController {
 
 
         //this now sets up the conditionData to hold the accurate current time, current temperature, the date/time, and the predicted tide level for the time of day
-        conditionData data = new conditionData(current_tide,current_temp,dnow,getTideStatus(0),nextExtreme,next_temp,stationName,stationLat,stationLong,cityName);
+        conditionData data = new conditionData(current_tide,current_temp,dnow,getTideStatus(0,station_id),nextExtreme,next_temp,stationName,stationLat,stationLong,cityName);
         return data;
     }
 
@@ -256,11 +256,11 @@ public class serviceController {
         return dataNode.path("name").asText();
     }
 
-    public Vector<tidePoint> getPredictedTides() throws Exception
+    public Vector<tidePoint> getPredictedTides(int ID) throws Exception
     {
         DateTime dnow = new DateTime(DateTimeZone.forID("America/Los_Angeles"));
         DateTimeFormatter dtf = DateTimeFormat.forPattern("MM/dd/yyyy%20HH:mm");
-        String tidePredUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?begin_date="+dnow.toString(dtf)+"&range=24&station=9411340&product=predictions&units=english&time_zone=lst_ldt&format=json&datum=MLLW";
+        String tidePredUrlString = "http://tidesandcurrents.noaa.gov/api/datagetter?begin_date="+dnow.toString(dtf)+"&range=24&station="+ID+"&product=predictions&units=english&time_zone=lst_ldt&format=json&datum=MLLW";
 
         Vector<tidePoint> tideNodes = new Vector();
         String tideDateTime;
@@ -282,11 +282,11 @@ public class serviceController {
     }
 
     // TODO refactor to change the number status classifications to be enumerated types. also get rid of unnecessary conversions between types
-    public String getTideStatus(int index) throws Exception // 0: out of bounds, 1: up, 2: down, 3: even, 4: high, 5: low, -1: nothing happened
+    public String getTideStatus(int index, int ID) throws Exception // 0: out of bounds, 1: up, 2: down, 3: even, 4: high, 5: low, -1: nothing happened
     {
         int status = -1; // nothing happened in function
         tidePoint current = new tidePoint();
-        Vector<tidePoint> tidePredictions = getPredictedTides();
+        Vector<tidePoint> tidePredictions = getPredictedTides(ID);
         if(index >= tidePredictions.size() || index < 0)
             status = 0;   // out of bounds
 
@@ -353,16 +353,16 @@ public class serviceController {
         return tide_status;
     }
 
-    public int getNextExtremeIndex(Vector<tidePoint> tidePredictions) throws Exception // returns the index of the next extreme in the vector
+    public int getNextExtremeIndex(Vector<tidePoint> tidePredictions, int ID) throws Exception // returns the index of the next extreme in the vector
     {
-        switch (getTideStatus(0))   // switch on the tide status of the current measurement
+        switch (getTideStatus(0,ID))   // switch on the tide status of the current measurement
         {
             case "up":
             case "low":
                 //look for high tide
                 for(int i = 1; i < tidePredictions.size(); i++)
                 {
-                    if(getTideStatus(i) == "high")
+                    if(getTideStatus(i,ID) == "high")
                     {
                         return i;
                     }
@@ -374,7 +374,7 @@ public class serviceController {
                 //look for low tide
                 for(int i = 1; i < tidePredictions.size(); i++)
                 {
-                    if(getTideStatus(i) == "low")
+                    if(getTideStatus(i,ID) == "low")
                     {
                         return i;
                     }
