@@ -24,6 +24,7 @@ import org.w3c.dom.*;
 
 @RestController
 public class serviceController {
+    Station[] closestStations;
     @RequestMapping("/current/{stationID}")
     public @ResponseBody conditionData index(@PathVariable("stationID") int ID) throws Exception
     {
@@ -80,7 +81,7 @@ public class serviceController {
 
     // TODO: put this function and the distance into a separate controller
     @RequestMapping("/stationsearch/{latitude},{longitude:.+}")
-    public @ResponseBody Station[] getNearestStations(@PathVariable("latitude") double lat, @PathVariable("longitude") double lon/*, @PathVariable("numberOfStations") int numStations*/) throws Exception {
+    public @ResponseBody Map<String,Station[]> getNearestStations(@PathVariable("latitude") double lat, @PathVariable("longitude") double lon/*, @PathVariable("numberOfStations") int numStations*/) throws Exception {
 
         URL url = new URL("http://opendap.co-ops.nos.noaa.gov/stations/stationsXML.jsp");
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -91,49 +92,8 @@ public class serviceController {
         Document doc = dBuilder.parse(conn.getInputStream());
         NodeList stationsList = doc.getElementsByTagName("station");
 
-        int nearestStationID = 0;
-        double nearestStationDistance = 0;
-        String nearestStationName = "";
-        double nearestLat = 0;
-        double nearestlong = 0;
-        String nearestStationState = "";
-        //Station[] nearestStations = new Station[numStations]; // array set to the number of stations asked for
-        //int[] nearestIDs = new int[numStations];
-        int nearIndex = 0;
-
         Station[] stations = fillStations(stationsList,lat,lon);//,nearestIDs);
-        /*
-        for(int i = 0; i < stationsList.getLength(); i++) {
-            Node node = stationsList.item(i);
 
-            String stName = node.getAttributes().getNamedItem("name").getNodeValue();
-            int stID = Integer.parseInt(node.getAttributes().getNamedItem("ID").getNodeValue());
-
-
-            Element e = (Element) node;
-            Element metadata = (Element) e.getElementsByTagName("metadata").item(0);
-            Element loc = (Element) metadata.getElementsByTagName("location").item(0);
-
-            double latitude = Double.parseDouble(loc.getElementsByTagName("lat").item(0).getChildNodes().item(0).getNodeValue());
-            double longitude = Double.parseDouble(loc.getElementsByTagName("long").item(0).getChildNodes().item(0).getNodeValue());
-            String state = "";
-            if(loc.getElementsByTagName("state").item(0).getChildNodes().item(0) != null)
-                state = loc.getElementsByTagName("state").item(0).getChildNodes().item(0).getNodeValue();
-            double currentDistance = distance(lat,lon,latitude,longitude);
-
-            if(nearestStationID == 0) {
-                nearestStationID = stID;
-                nearestStationDistance = currentDistance;
-            }
-            else if(currentDistance < nearestStationDistance) {
-                nearestStationID = stID;
-                nearestStationDistance = currentDistance;
-                nearestStationName = stName;
-                nearestLat = latitude;
-                nearestlong = longitude;
-                nearestStationState = state;
-            }
-        }*/
         int[] IDS = {0,0,0,0,0};
         for(int i = 0; i < stations.length; i++) {
             if(stations[i] != null) {
@@ -141,55 +101,17 @@ public class serviceController {
             }
         }
 
-        //nearestStations[nearIndex] = new Station(nearestStationName,nearestStationID,nearestLat,nearestlong,nearestStationState);
-        //return new Station(nearestStationName,nearestStationID,nearestLat,nearestlong,nearestStationState);
-        return stations;
+        Map<String,Station[]> map = new HashMap();
+        map.put("stations",stations);
+
+        return map;
     }
 
     //public Station getStation(int ID)
 
     public Station[] fillStations(NodeList list, double lat, double lon) {//int[] IDS) {
-
-        int nearestStationID = 0;
-        double nearestStationDistance = 0;
-        String nearestStationName = "";
-        double nearestLat = 0;
-        double nearestlong = 0;
-        String nearestStationState = "";
         Station[] result = new Station[5];
 
-        /*
-        for(int i = 0; i < list.getLength(); i++) {
-            Node node = list.item(i);
-
-            String stName = node.getAttributes().getNamedItem("name").getNodeValue();
-            int stID = Integer.parseInt(node.getAttributes().getNamedItem("ID").getNodeValue());
-
-
-            Element e = (Element) node;
-            Element metadata = (Element) e.getElementsByTagName("metadata").item(0);
-            Element loc = (Element) metadata.getElementsByTagName("location").item(0);
-
-            double latitude = Double.parseDouble(loc.getElementsByTagName("lat").item(0).getChildNodes().item(0).getNodeValue());
-            double longitude = Double.parseDouble(loc.getElementsByTagName("long").item(0).getChildNodes().item(0).getNodeValue());
-            String state = "";
-            if (loc.getElementsByTagName("state").item(0).getChildNodes().item(0) != null)
-                state = loc.getElementsByTagName("state").item(0).getChildNodes().item(0).getNodeValue();
-            double currentDistance = distance(lat, lon, latitude, longitude);
-
-            if (nearestStationID == 0) {
-                nearestStationID = stID;
-                nearestStationDistance = currentDistance;
-            } else if (currentDistance < nearestStationDistance ) {//&& !contains(IDS, stID)) {
-
-                nearestStationID = stID;
-                nearestStationDistance = currentDistance;
-                nearestStationName = stName;
-                nearestLat = latitude;
-                nearestlong = longitude;
-                nearestStationState = state;
-            }
-        }*/
         int[] IDS = {0,0,0,0,0};
 
         for(int i = 0; i < result.length; i++) {
@@ -292,8 +214,12 @@ public class serviceController {
 
     @RequestMapping("/conditions/{latitude},{longitude:.+}")
     public @ResponseBody conditionData dataFromLocation(@PathVariable("latitude") double lat, @PathVariable("longitude") double lon) throws Exception {
-        Station[] stats = getNearestStations(lat,lon);
-        return index(stats[0].ID);
+        // TODO fix all calls that take a StationCollection
+        //Station[] stats = getNearestStations(lat,lon);
+        //return index(stats[0].ID);
+
+        // temporary
+        return new conditionData(1,2,new DateTime(),"",new tidePoint(),1,"",2,3,"");
     }
 
     public static String getViaHTTP(String urlString) throws Exception
